@@ -1,135 +1,70 @@
-import { useState, useEffect } from 'react';
-import {
-  useReactTable,
-  getCoreRowModel,
-  getSortedRowModel,
-  flexRender,
-} from '@tanstack/react-table';
-import { Link } from 'react-router-dom';
-import api from '../api/api';
+// src/components/EmailsPage.jsx
+import React, { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 
-function EmailsPage() {
+const EmailsPage = () => {
   const [emails, setEmails] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
+  const navigate = useNavigate();
 
   useEffect(() => {
-    setLoading(true);
-    setError(null);
-    api
-      .get('emails/emails/') // ✅ fixed URL
-      .then((res) => {
-        console.log('Fetched emails data:', res.data);
-        setEmails(res.data);
+    const fetchEmails = async () => {
+      try {
+        const res = await fetch("http://localhost:8000/emails/emails/");
+        const data = await res.json();
+        setEmails(data);
+      } catch (err) {
+        console.error("Error fetching emails:", err);
+      } finally {
         setLoading(false);
-      })
-      .catch((err) => {
-        console.error('Fetch error:', err);
-        setError('Failed to load emails: ' + err.message);
-        setLoading(false);
-      });
+      }
+    };
+    fetchEmails();
   }, []);
 
-  const columns = [
-    { accessorKey: 'sender', header: 'Sender' },
-    { accessorKey: 'receiver', header: 'Receiver' },
-    { accessorKey: 'subject', header: 'Subject' },
-    { accessorKey: 'created_at', header: 'Created At' },
-    {
-      id: 'actions',
-      header: 'Actions',
-      cell: ({ row }) => (
-        <div className="space-x-2">
-          <Link
-            to={`/reply/${row.original.email_id}`}
-            className="text-blue-500 hover:underline"
-          >
-            Reply
-          </Link>
-          <Link
-            to={`/forward/${row.original.email_id}`}
-            className="text-blue-500 hover:underline"
-          >
-            Forward
-          </Link>
-          <Link
-            to={`/thread/${row.original.email_id}`}
-            className="text-blue-500 hover:underline"
-          >
-            View Thread
-          </Link>
-        </div>
-      ),
-    },
-  ];
+  if (loading) return <p className="p-4">Loading emails...</p>;
 
-  const table = useReactTable({
-    data: emails,
-    columns,
-    getCoreRowModel: getCoreRowModel(),
-    getSortedRowModel: getSortedRowModel(),
+  // Group emails by thread_id
+  const threads = {};
+  emails.forEach((email) => {
+    if (!threads[email.thread_id]) {
+      threads[email.thread_id] = [];
+    }
+    threads[email.thread_id].push(email);
   });
 
-  if (loading) return <p>Loading emails...</p>;
-  if (error) return <p className="text-red-500">{error}</p>;
-
   return (
-    <div>
-      <h2 className="text-xl font-semibold mb-4">Email List</h2>
-      <button
-        onClick={() => window.location.reload()}
-        className="mb-4 px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
-      >
-        Refresh List
-      </button>
+    <div className="p-6">
+      <h1 className="text-2xl font-bold mb-4">📧 Email Clusters</h1>
 
-      {emails.length === 0 ? (
-        <p>No emails yet. Send some emails first.</p>
-      ) : (
-        <table className="min-w-full bg-white border">
-          <thead>
-            {table.getHeaderGroups().map((headerGroup) => (
-              <tr key={headerGroup.id}>
-                {headerGroup.headers.map((header) => (
-                  <th
-                    key={header.id}
-                    className="p-2 border cursor-pointer"
-                    onClick={
-                      header.column.getCanSort()
-                        ? header.column.getToggleSortingHandler()
-                        : undefined
-                    }
-                  >
-                    {flexRender(
-                      header.column.columnDef.header,
-                      header.getContext()
-                    )}
-                    <span>
-                      {{
-                        asc: ' 🔼',
-                        desc: ' 🔽',
-                      }[header.column.getIsSorted()] ?? ''}
-                    </span>
-                  </th>
-                ))}
-              </tr>
+      {Object.keys(threads).map((threadId) => (
+        <div key={threadId} className="mb-6 p-4 border rounded-lg shadow">
+          <h2 className="text-lg font-semibold mb-2">
+            Thread #{threadId} ({threads[threadId].length} emails)
+          </h2>
+          <ul className="space-y-2">
+            {threads[threadId].map((email) => (
+              <li
+                key={email.email_id}
+                className="p-2 border-b last:border-none"
+              >
+                <p className="font-medium">{email.subject}</p>
+                <p className="text-sm text-gray-600">
+                  {email.sender} → {email.receiver}
+                </p>
+              </li>
             ))}
-          </thead>
-          <tbody>
-            {table.getRowModel().rows.map((row) => (
-              <tr key={row.id}>
-                {row.getVisibleCells().map((cell) => (
-                  <td key={cell.id} className="p-2 border">
-                    {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                  </td>
-                ))}
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      )}
+          </ul>
+          <button
+            className="mt-2 px-3 py-1 bg-blue-600 text-white rounded hover:bg-blue-700"
+            onClick={() => navigate(`/thread/${threadId}`)}
+          >
+            View Thread
+          </button>
+        </div>
+      ))}
     </div>
   );
-}
+};
 
 export default EmailsPage;
