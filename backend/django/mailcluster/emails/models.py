@@ -8,6 +8,7 @@ class Email(models.Model):
     subject = models.CharField(max_length=255)
     body = models.TextField()
     thread_id = models.IntegerField()
+    created_at = models.DateTimeField(auto_now_add=True)
     parent_email = models.ForeignKey(
         "self", null=True, blank=True,
         on_delete=models.SET_NULL,

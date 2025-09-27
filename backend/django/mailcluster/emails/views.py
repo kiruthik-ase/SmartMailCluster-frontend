@@ -71,3 +71,19 @@ def cluster_emails_view(request):
     return Response({
         "clusters":{str(root):members for root, members in email_clusters.items()}
     })
+
+# emails/views.py
+@api_view(['GET'])
+def list_emails_view(request):
+    emails = Email.objects.all().order_by('-created_at')  # Sort by latest first
+    data = [
+        {
+            "email_id": e.email_id,
+            "sender": e.sender,
+            "receiver": e.receiver,
+            "subject": e.subject,
+            "created_at": e.created_at.isoformat() if e.created_at else None,
+            "thread_id": e.thread_id
+        } for e in emails
+    ]
+    return Response(data)
